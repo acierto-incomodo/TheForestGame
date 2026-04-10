@@ -21,6 +21,8 @@ RELEASE_NOTES_URL = "https://github.com/acierto-incomodo/TheForestGame/releases/
 URL_7ZR = "https://github.com/acierto-incomodo/TheForestGame/releases/latest/download/7zr.exe"
 
 EXE_NAME_WIN   = "Build/TheForest.exe"
+EXE_NAME_32    = "Build/TheForest32.exe"
+EXE_NAME_VR    = "Build/TheForestVR.exe"
 EXE_NAME_LINUX = "Build/TheForest.exe"
 
 DOWNLOAD_DIR = Path.cwd() / "downloads"
@@ -61,8 +63,10 @@ def extract_zip(zip_path: Path, to_dir: Path, clear: bool = True):
         z.extractall(path=to_dir)
 
 
-def start_game_process():
-    if sys.platform.startswith("win"):
+def start_game_process(exe_name=None):
+    if exe_name:
+        exe = BUILD_DIR / exe_name
+    elif sys.platform.startswith("win"):
         exe = BUILD_DIR / EXE_NAME_WIN
     else:
         exe = BUILD_DIR / EXE_NAME_LINUX
@@ -111,10 +115,18 @@ class LauncherWindow(QtWidgets.QWidget):
         btn_layout = QtWidgets.QHBoxLayout()
         self.btn_check  = QtWidgets.QPushButton("Buscar actualización")
         self.btn_update = QtWidgets.QPushButton("Actualizar")
+
+        # Selector de versión (Windows)
+        self.mode_selector = QtWidgets.QComboBox()
+        self.mode_selector.addItems(["Versión Estándar", "Versión 32-bit", "Versión VR"])
+        if not sys.platform.startswith("win"):
+            self.mode_selector.setEnabled(False)
+
         self.btn_start  = QtWidgets.QPushButton("Iniciar juego")
 
         btn_layout.addWidget(self.btn_check)
         btn_layout.addWidget(self.btn_update)
+        btn_layout.addWidget(self.mode_selector)
         btn_layout.addWidget(self.btn_start)
 
         layout.addLayout(btn_layout)
@@ -271,6 +283,7 @@ class LauncherWindow(QtWidgets.QWidget):
         self.btn_update.setEnabled(False)
         self.btn_start.setEnabled(False)
         self.btn_delete_data.setEnabled(False)
+        self.mode_selector.setEnabled(False)
         
         self.progress.setVisible(True)
         self.progress.setValue(0)
@@ -296,7 +309,7 @@ class LauncherWindow(QtWidgets.QWidget):
                 download_file(URL_7ZR, p_7zr, progress_cb)
 
                 # 2. Descargar partes .001 a .012
-                total_parts = 1
+                total_parts = 3
                 for i in range(1, total_parts + 1):
                     ext = f".{i:03d}"
                     url = f"{BASE_URL_WIN}{ext}"
@@ -376,6 +389,8 @@ class LauncherWindow(QtWidgets.QWidget):
         self.btn_update.setEnabled(True)
         self.btn_start.setEnabled(True)
         self.btn_delete_data.setEnabled(True)
+        if sys.platform.startswith("win"):
+            self.mode_selector.setEnabled(True)
         
         self.refresh_version_display()
         self.load_release_notes()
@@ -391,12 +406,24 @@ class LauncherWindow(QtWidgets.QWidget):
         self.btn_update.setEnabled(True)
         self.btn_start.setEnabled(True)
         self.btn_delete_data.setEnabled(True)
+        if sys.platform.startswith("win"):
+            self.mode_selector.setEnabled(True)
 
     # ------------ START ----------
 
     def on_start(self):
         try:
-            start_game_process()
+            exe_to_run = None
+            if sys.platform.startswith("win"):
+                idx = self.mode_selector.currentIndex()
+                if idx == 1:
+                    exe_to_run = EXE_NAME_32
+                elif idx == 2:
+                    exe_to_run = EXE_NAME_VR
+                else:
+                    exe_to_run = EXE_NAME_WIN
+            
+            start_game_process(exe_to_run)
             # Cerrar el launcher
             QtWidgets.QApplication.quit()
         except Exception as e:
